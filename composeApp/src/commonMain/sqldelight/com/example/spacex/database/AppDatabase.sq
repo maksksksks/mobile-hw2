@@ -1,0 +1,70 @@
+CREATE TABLE IF NOT EXISTS LaunchEntity (
+    flight_number INTEGER PRIMARY KEY,
+    mission_name TEXT,
+    launch_date_utc TEXT,
+    links_json TEXT,
+    details TEXT,
+    launch_year TEXT,
+    is_favorite INTEGER DEFAULT 0,
+    notification_sent INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS UserEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS RocketEntity (
+    id INTEGER PRIMARY KEY,
+    rocket_name TEXT,
+    active INTEGER DEFAULT 0,
+    cost_per_launch INTEGER,
+    success_rate_pct INTEGER,
+    first_flight TEXT,
+    flickr_images_json TEXT,
+    is_favorite INTEGER DEFAULT 0
+);
+
+insertRocket:
+INSERT OR REPLACE INTO RocketEntity(id, rocket_name, active, cost_per_launch, success_rate_pct, first_flight, flickr_images_json, is_favorite)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAllRockets:
+SELECT * FROM RocketEntity;
+
+deleteAllRockets:
+DELETE FROM RocketEntity;
+
+updateRocketFavorite:
+UPDATE RocketEntity SET is_favorite = ? WHERE id = ?;
+
+selectAllLaunches:
+SELECT * FROM LaunchEntity;
+
+insertLaunch:
+INSERT OR REPLACE INTO LaunchEntity(flight_number, mission_name, launch_date_utc, links_json, details, launch_year, is_favorite)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateFavorite:
+UPDATE LaunchEntity SET is_favorite = ? WHERE flight_number = ?;
+
+deleteAllLaunches:
+DELETE FROM LaunchEntity;
+
+
+selectUser:
+SELECT * FROM UserEntity LIMIT 1;
+
+insertUser:
+INSERT OR REPLACE INTO UserEntity(username, password) VALUES (?, ?);
+
+deleteUser:
+DELETE FROM UserEntity;
+
+
+selectFavoriteLaunches:
+SELECT * FROM LaunchEntity WHERE is_favorite = 1;
+
+selectFavoriteRockets:
+SELECT * FROM RocketEntity WHERE is_favorite = 1;
