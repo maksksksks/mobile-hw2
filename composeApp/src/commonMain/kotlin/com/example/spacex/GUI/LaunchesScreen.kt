@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,13 +24,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,58 +48,54 @@ import com.example.spacex.ViewModel.MainViewModel
 import com.example.spacex.ViewModel.MainViewModelFactory
 import com.example.spacex.shareText
 
+
+
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = viewModel(factory = MainViewModelFactory),
     onMissionClick: (Launch) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
+    val listState = rememberLazyListState()
+
+    // Определение конца списка
+    val reachedEnd by remember {
+        derivedStateOf {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+            val totalItems = listState.layoutInfo.totalItemsCount
+            if (totalItems == 0) return@derivedStateOf false
+            lastVisibleItem != null && lastVisibleItem >= totalItems - 3
+        }
+    }
+
+    // Триггер подгрузки
+    if (reachedEnd && !state.endReached && !state.isLoadingMore && !state.isLoading) {
+        viewModel.loadNextPage()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Фон экрана
+            .background(MaterialTheme.colorScheme.background)
     ) {
-
+        // Поиск (всегда виден)
         OutlinedTextField(
             value = state.searchQuery,
             onValueChange = { viewModel.onSearchQueryChanged(it) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            placeholder = {
-                Text(
-                    "Поиск по названию или году...",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            leadingIcon = {
-                Text("🔍", fontSize = 18.sp)
-            },
-            trailingIcon = {
-                if (state.searchQuery.isNotEmpty()) {
-                    TextButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                        Text(
-                            "✕",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 18.sp
-                        )
-                    }
-                }
-            },
+            placeholder = { Text("Поиск...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                 cursorColor = MaterialTheme.colorScheme.primary
             )
         )
 
+        // Табы (всегда видны)
         ScrollableTabRow(
             selectedTabIndex = state.currentFilter.ordinal,
             contentColor = MaterialTheme.colorScheme.onBackground,
@@ -112,48 +110,57 @@ fun MainScreen(
                     text = {
                         Text(
                             text = filter.title,
-                            color = if (state.currentFilter == filter)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (state.currentFilter == filter) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
             }
         }
 
-        if (state.isLoading) {
-            Box(
-                Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-        } else {
-            if (state.launches.isEmpty()) {
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (state.searchQuery.isNotEmpty()) "Ничего не найдено" else "Нет данных",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 16.sp
+        // Логика состояний
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                // 1. Состояние ошибки
+                state.errorMessage != null -> {
+                    ErrorState(
+                        message = state.errorMessage ?: "Произошла ошибка",
+                        onRetry = { viewModel.loadData() }
                     )
                 }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(
-                        items = state.launches,
-                        key = { launch -> launch.flight_number ?: launch.hashCode() }
-                    ) { launch ->
-                        LaunchItem(
-                            launch = launch,
-                            onClick = { onMissionClick(launch) },
-                            onFavoriteClick = {
-                                viewModel.onFavoriteClicked(launch.flight_number!!)
+                // 2. Состояние первичной загрузки
+                state.isLoading && state.launches.isEmpty() -> {
+                    LoadingState()
+                }
+                // 3. Состояние пустого списка (после загрузки)
+                state.launches.isEmpty() -> {
+                    EmptyState(query = state.searchQuery)
+                }
+                // 4. Состояние данных (список)
+                else -> {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                        items(state.launches, key = { it.flight_number ?: it.hashCode() }) { launch ->
+                            LaunchItem(
+                                launch = launch,
+                                onClick = { onMissionClick(launch) },
+                                onFavoriteClick = { launch.flight_number?.let { viewModel.onFavoriteClicked(it) } }
+                            )
+                        }
+
+                        // Пагинация: лоадер внизу
+                        if (state.isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(32.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
-                        )
+                        }
                     }
                 }
             }

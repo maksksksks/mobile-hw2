@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.example.spacex.Data.Rockets
+import io.github.aakira.napier.Napier
 
 @Composable
 fun RocketItem(
@@ -44,6 +45,7 @@ fun RocketItem(
             val imageUrl = rocket.flickr_images?.firstOrNull()
 
             if (!imageUrl.isNullOrEmpty()) {
+                Napier.i("Getting image")
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = rocket.rocket_name,

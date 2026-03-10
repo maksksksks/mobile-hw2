@@ -44,6 +44,7 @@ kotlin {
             implementation(libs.coroutines.extensions)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
+            implementation(libs.napier)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

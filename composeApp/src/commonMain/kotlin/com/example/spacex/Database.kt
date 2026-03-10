@@ -6,8 +6,6 @@ import com.example.spacex.Data.Links
 import com.example.spacex.Data.Rockets
 import com.example.spacex.database.AppDatabase
 import com.example.spacex.database.UserEntity
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -72,7 +70,7 @@ class Database(driver: SqlDriver) {
     fun getRockets(): List<Rockets> {
         return queries.selectAllRockets().executeAsList().map { entity ->
             Rockets(
-                id = entity.id.toInt().toLong(),
+                id = entity.id, // SQLDelight обычно возвращает Long для INTEGER
                 rocket_name = entity.rocket_name,
                 active = entity.active == 1L,
                 cost_per_launch = entity.cost_per_launch,
@@ -90,7 +88,7 @@ class Database(driver: SqlDriver) {
         queries.transaction {
             rockets.forEach { rocket ->
                 queries.insertRocket(
-                    id = rocket.id?.toLong(),
+                    id = rocket.id, // Убедитесь, что типы совпадают (обычно Long)
                     rocket_name = rocket.rocket_name,
                     active = if (rocket.active == true) 1L else 0L,
                     cost_per_launch = rocket.cost_per_launch,
@@ -112,8 +110,21 @@ class Database(driver: SqlDriver) {
     fun setRocketFavorite(id: Long, isFavorite: Boolean) {
         queries.updateRocketFavorite(
             is_favorite = if (isFavorite) 1L else 0L,
-            id = id.toLong()
+            id = id
         )
+    }
+
+    // --- ИСПРАВЛЕННЫЕ МЕТОДЫ ---
+
+    // Возвращает список ID избранных запусков
+    fun getFavoriteFlightNumbers(): Set<Long> {
+        // Используем существующий запрос selectFavoriteLaunches
+        return queries.selectFavoriteLaunches().executeAsList().map { it.flight_number }.toSet()
+    }
+
+    // Возвращает список ID избранных ракет
+    fun getFavoriteRocketIds(): Set<Long> {
+        return queries.selectFavoriteRockets().executeAsList().map { it.id }.toSet()
     }
 
     fun getFavoriteLaunches(): List<Launch> {
@@ -125,7 +136,7 @@ class Database(driver: SqlDriver) {
                 links = entity.links_json?.let { Json.decodeFromString<Links>(it) },
                 details = entity.details,
                 launch_year = entity.launch_year,
-                is_favorite = entity.is_favorite == 1L
+                is_favorite = true // Мы знаем, что они избранные
             )
         }
     }
@@ -133,7 +144,7 @@ class Database(driver: SqlDriver) {
     fun getFavoriteRockets(): List<Rockets> {
         return queries.selectFavoriteRockets().executeAsList().map { entity ->
             Rockets(
-                id = entity.id.toInt().toLong(),
+                id = entity.id,
                 rocket_name = entity.rocket_name,
                 active = entity.active == 1L,
                 cost_per_launch = entity.cost_per_launch,
@@ -142,7 +153,7 @@ class Database(driver: SqlDriver) {
                 flickr_images = entity.flickr_images_json?.let {
                     Json.decodeFromString<List<String>>(it)
                 },
-                is_favorite = entity.is_favorite == 1L
+                is_favorite = true
             )
         }
     }

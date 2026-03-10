@@ -58,35 +58,22 @@ fun RocketsScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-
+        // Поиск
         OutlinedTextField(
             value = state.searchQuery,
             onValueChange = { viewModel.onSearchQueryChanged(it) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             placeholder = { Text("Поиск по названию ракеты...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            leadingIcon = { Text("🔍", fontSize = 18.sp) },
-            trailingIcon = {
-                if (state.searchQuery.isNotEmpty()) {
-                    TextButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                        Text("✕", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
-                    }
-                }
-            },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                 cursorColor = MaterialTheme.colorScheme.primary
             )
         )
 
+        // Табы
         ScrollableTabRow(
             selectedTabIndex = state.currentFilter.ordinal,
             contentColor = MaterialTheme.colorScheme.onBackground,
@@ -101,46 +88,45 @@ fun RocketsScreen(
                     text = {
                         Text(
                             text = filter.title,
-                            color = if (state.currentFilter == filter)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (state.currentFilter == filter) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
             }
         }
 
-        if (state.isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-        } else {
-            if (state.rockets.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (state.searchQuery.isNotEmpty()) "Ничего не найдено" else "Нет данных",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 16.sp
-                    )
+        // Состояния
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                state.errorMessage != null -> {
+                    ErrorState(message = state.errorMessage!!, onRetry = { viewModel.loadData() })
                 }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(
-                        items = state.rockets,
-                        key = { rocket -> rocket.id ?: rocket.hashCode() }
-                    ) { rocket ->
-                        RocketItem(
-                            rocket = rocket,
-                            onClick = { onRocketClick(rocket) },
-                            onFavoriteClick = { viewModel.onFavoriteClicked(rocket.id!!) }
-                        )
+                state.isLoading -> {
+                    LoadingState()
+                }
+                state.rockets.isEmpty() -> {
+                    EmptyState(query = state.searchQuery)
+                }
+                else -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(state.rockets, key = { it.id ?: it.hashCode() }) { rocket ->
+                            RocketItem(
+                                rocket = rocket,
+                                onClick = { onRocketClick(rocket) },
+                                onFavoriteClick = { rocket.id?.let { viewModel.onFavoriteClicked(it) } }
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+// --- Shared UI Components (можно вынести в отдельный файл) ---
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

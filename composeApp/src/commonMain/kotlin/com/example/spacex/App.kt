@@ -28,6 +28,8 @@ import com.example.spacex.GUI.*
 import com.example.spacex.Repository.LaunchesRepository
 import com.example.spacex.Theme.AppTheme
 import com.example.spacex.ViewModel.*
+import io.github.aakira.napier.DebugAntilog
+import io.github.aakira.napier.Napier
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -165,6 +167,7 @@ fun MainCarousel(
 @Composable
 @Preview
 fun App() {
+    Napier.base(DebugAntilog())
     val profileViewModel: ProfileViewModel = viewModel(factory = ProfileViewModelFactory)
     val profileState by profileViewModel.state.collectAsState()
 

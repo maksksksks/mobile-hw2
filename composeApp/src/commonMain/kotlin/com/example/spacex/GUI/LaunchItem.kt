@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.example.spacex.Data.Launch
+import io.github.aakira.napier.Napier
 
 @Composable
 fun LaunchItem(
@@ -39,6 +40,7 @@ fun LaunchItem(
             .clickable { onClick() }
     ) {
         Row(modifier = Modifier.padding(12.dp)) {
+            Napier.i("Getting image")
             AsyncImage(
                 model = launch.links?.mission_patch_small ?: launch.links?.mission_patch,
                 contentDescription = null,
